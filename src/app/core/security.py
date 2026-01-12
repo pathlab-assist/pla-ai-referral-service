@@ -105,13 +105,23 @@ class JWTValidator:
             signing_key = await self.jwks_client.get_signing_key(kid)
 
             # Verify and decode token
-            claims = jwt.decode(
-                token,
-                signing_key,
-                algorithms=["RS256"],
-                issuer=self.issuer,
-                audience=self.audience,
-            )
+            # Only validate audience if configured (skip if empty string)
+            if self.audience:
+                claims = jwt.decode(
+                    token,
+                    signing_key,
+                    algorithms=["RS256"],
+                    issuer=self.issuer,
+                    audience=self.audience,
+                )
+            else:
+                claims = jwt.decode(
+                    token,
+                    signing_key,
+                    algorithms=["RS256"],
+                    issuer=self.issuer,
+                    options={"verify_aud": False},  # Skip audience validation
+                )
 
             logger.debug("Token validated", user_id=claims.get("sub"))
             return claims  # type: ignore[no-any-return]

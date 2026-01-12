@@ -30,22 +30,26 @@ services:
     image: pathlab-assist/pla-ai-referral-service:latest
     container_name: pathlab-ai-referral-service
     ports:
-      - "8011:8011"
+      - "8011:8080"
     environment:
       # Service
       - SERVICE_NAME=ai-referral-service
+      - SERVICE_VERSION=1.0.0
       - ENVIRONMENT=development
-      - DEBUG=true
+      - SERVER_PORT=8080
 
-      # AWS/LocalStack
+      # AWS/LocalStack Configuration
+      - AWS_ENDPOINT=http://pathlab-localstack:4566
       - AWS_REGION=us-east-1
-      - AWS_ENDPOINT_URL=http://pathlab-localstack:4566
+      - AWS_LOCAL_MODE=true
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
-      - DYNAMODB_TABLE_PREFIX=pla-dev-
 
-      # JWT (disabled for local dev)
-      - JWT_ENABLED=false
+      # Authentication (using pathlab-assist-auth service)
+      - JWT_ENABLED=true
+      - JWT_JWKS_URL=http://pathlab-assist-auth:8080/.well-known/jwks.json
+      - JWT_ISSUER=pathlab-assist-auth
+      - OPA_ENABLED=false
 
       # Anthropic
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
@@ -56,24 +60,27 @@ services:
       # External Services
       - TEST_CATALOG_SERVICE_URL=http://pathlab-test-catalog-service:8080
 
+      # OAuth Client Credentials (for service-to-service auth)
+      - OAUTH_ENABLED=true
+      - OAUTH_TOKEN_URL=http://pathlab-assist-auth:8080/v1/oauth/token
+      - OAUTH_CLIENT_ID=ai-referral-service
+      - OAUTH_CLIENT_SECRET=ai-referral-secret
+      - OAUTH_SCOPES=system:catalog:read system/Test.read
+
       # Logging
       - LOG_LEVEL=DEBUG
-      - LOG_JSON=false
+      - LOG_OUTPUT_JSON=false
 
       # CORS
       - CORS_ENABLED=true
-      - CORS_ORIGINS=["*"]
-    depends_on:
-      localstack:
-        condition: service_healthy
+      - CORS_ALLOWED_ORIGINS=*
+
+      # Audit Configuration
+      - AUDIT_ENABLED=false
     networks:
       - pathlab
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8011/health"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 10s
+    # Don't use depends_on because LocalStack might be started by another service
+    # Instead, the application should handle connection retries
 
 networks:
   pathlab:

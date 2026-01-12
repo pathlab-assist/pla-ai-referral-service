@@ -4,6 +4,7 @@ import httpx
 from app.config import settings
 from app.core.logging import get_logger
 from app.schemas.referral import MatchedTest
+from app.services.oauth_client import OAuthClient
 
 logger = get_logger(__name__)
 
@@ -19,6 +20,7 @@ class TestMatcherService:
         """
         self.organization_id = organization_id
         self.catalog_url = settings.test_catalog_service_url
+        self.oauth_client = OAuthClient()
 
     async def match_test(self, test_name: str) -> MatchedTest:
         """Match a single test name to the catalog.
@@ -44,13 +46,19 @@ class TestMatcherService:
             )
 
         try:
+            # Get OAuth token for service-to-service auth
+            access_token = await self.oauth_client.get_access_token()
+
+            headers = {"X-Organization-Code": self.organization_id}
+            if access_token:
+                headers["Authorization"] = f"Bearer {access_token}"
+
             async with httpx.AsyncClient() as client:
                 # Call test-catalog-service search endpoint
-                # Using organization_id header for multi-tenancy
                 response = await client.get(
                     f"{self.catalog_url}/api/v1/tests",
                     params={"q": test_stripped},
-                    headers={"X-Organization-Code": self.organization_id},
+                    headers=headers,
                     timeout=5.0,
                 )
 
@@ -143,6 +151,13 @@ class TestMatcherService:
 
         # Use batch matching endpoint for better performance
         try:
+            # Get OAuth token for service-to-service auth
+            access_token = await self.oauth_client.get_access_token()
+
+            headers = {"X-Organization-Code": self.organization_id}
+            if access_token:
+                headers["Authorization"] = f"Bearer {access_token}"
+
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     f"{self.catalog_url}/api/v1/tests/match",
@@ -150,7 +165,7 @@ class TestMatcherService:
                         "testNames": test_names,
                         "region": "DEFAULT",  # Can be made configurable
                     },
-                    headers={"X-Organization-Code": self.organization_id},
+                    headers=headers,
                     timeout=10.0,  # Longer timeout for batch operation
                 )
 

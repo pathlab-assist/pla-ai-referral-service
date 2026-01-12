@@ -45,6 +45,13 @@ class Settings(BaseSettings):
     # External Services
     test_catalog_service_url: str = "http://localhost:8003"
 
+    # OAuth Client Credentials (for service-to-service auth)
+    oauth_enabled: bool = True
+    oauth_token_url: str = "http://pathlab-assist-auth:8080/v1/oauth/token"
+    oauth_client_id: str = "ai-referral-service"
+    oauth_client_secret: str = "ai-referral-secret"
+    oauth_scopes: str = "system:catalog:read system/Test.read"
+
     # Logging
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     log_json: bool = True  # Default: JSON logs (production-ready)
