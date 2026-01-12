@@ -75,8 +75,21 @@ async def scan_referral(
             detail=f"Image too large. Maximum size: {settings.max_image_size_mb}MB",
         )
 
-    # Determine image type
+    # Determine and validate image type
     image_type = image.content_type or "image/jpeg"
+
+    # Validate content type
+    valid_types = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"]
+    if image_type not in valid_types:
+        logger.warning(
+            "Invalid image content type",
+            content_type=image_type,
+            organization_id=auth.organization_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid image type: {image_type}. Supported types: JPEG, PNG, GIF, WebP",
+        )
 
     logger.info(
         "Starting referral scan",

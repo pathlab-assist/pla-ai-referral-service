@@ -6,6 +6,7 @@ from typing import Any
 import anthropic
 
 from app.config import settings
+from app.core.exceptions import ValidationError
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -140,7 +141,15 @@ class ClaudeVisionService:
 
             return extracted_data
 
+        except anthropic.BadRequestError as e:
+            # Client errors (400) - invalid request, image too large, etc.
+            logger.warning("Claude API client error", error=str(e), error_type=type(e).__name__)
+            error_msg = str(e)
+            if "exceeds" in error_msg.lower() or "maximum" in error_msg.lower():
+                raise ValidationError("Image file too large. Maximum size is 5MB when base64 encoded.")
+            raise ValidationError(f"Invalid request: {error_msg}")
         except anthropic.APIError as e:
+            # Server errors (500+) or other API errors
             logger.error("Claude API error", error=str(e), error_type=type(e).__name__)
             raise Exception(f"Claude API error: {str(e)}") from e
         except json.JSONDecodeError as e:

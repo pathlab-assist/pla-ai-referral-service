@@ -41,9 +41,9 @@ HTTP 200
 [Asserts]
 jsonpath "$.success" == true
 jsonpath "$.data" count == 3
-jsonpath "$.data[*].testId" includes "{{TEST_CODE_FBC}}"
-jsonpath "$.data[*].testId" includes "{{TEST_CODE_UEC}}"
-jsonpath "$.data[*].testId" includes "{{TEST_CODE_LFT}}"
+jsonpath "$.data[*].testId" contains "{{TEST_CODE_FBC}}"
+jsonpath "$.data[*].testId" contains "{{TEST_CODE_UEC}}"
+jsonpath "$.data[*].testId" contains "{{TEST_CODE_LFT}}"
 # Note: Fuzzy matching may not always return 1.0 confidence
 jsonpath "$.data[*].confidence" nth 0 > 0.7
 jsonpath "$.data[*].confidence" nth 1 > 0.3
@@ -128,8 +128,8 @@ HTTP 200
 [Asserts]
 jsonpath "$.success" == true
 jsonpath "$.data" count == 3
-jsonpath "$.data[*].testId" includes "{{TEST_CODE_FBC}}"
-jsonpath "$.data[*].testId" includes "{{TEST_CODE_UEC}}"
+jsonpath "$.data[*].testId" contains "{{TEST_CODE_FBC}}"
+jsonpath "$.data[*].testId" contains "{{TEST_CODE_UEC}}"
 # Alias matching should return reasonable confidence scores
 jsonpath "$.data[*].confidence" nth 0 > 0.7
 jsonpath "$.data[*].confidence" nth 1 > 0.7
