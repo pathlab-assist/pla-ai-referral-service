@@ -1,46 +1,24 @@
 """FastAPI dependency injection."""
-from typing import Annotated
-
-from fastapi import Depends, Request
+from fastapi import Request
 
 from app.config import settings
 from app.core.exceptions import UnauthorizedError
-from app.repositories.item import ItemRepository
-from app.routers.item import AuthContext
-from app.services.item import ItemService
-
-# Repository dependencies
 
 
-def get_item_repository() -> ItemRepository:
-    """Get Item repository instance.
+class AuthContext:
+    """Authentication context from JWT."""
 
-    Returns:
-        ItemRepository instance
-    """
-    table_name = f"{settings.dynamodb_table_prefix}items"
-    return ItemRepository(
-        table_name=table_name,
-        aws_region=settings.aws_region,
-        aws_endpoint_url=settings.aws_endpoint_url,
-    )
+    def __init__(self, user_id: str, organization_id: str, roles: list[str]) -> None:
+        """Initialize auth context.
 
-
-# Service dependencies
-
-
-def get_item_service(
-    repository: Annotated[ItemRepository, Depends(get_item_repository)],
-) -> ItemService:
-    """Get Item service instance.
-
-    Args:
-        repository: Item repository
-
-    Returns:
-        ItemService instance
-    """
-    return ItemService(repository=repository)
+        Args:
+            user_id: User ID from JWT
+            organization_id: Organization ID from JWT
+            roles: User roles from JWT
+        """
+        self.user_id = user_id
+        self.organization_id = organization_id
+        self.roles = roles
 
 
 # Authentication dependencies

@@ -15,7 +15,7 @@ from app.core.security import JWKSClient, JWTValidator
 from app.middleware.auth import JWTAuthMiddleware
 from app.middleware.logging import LoggingMiddleware
 from app.middleware.request_id import RequestIDMiddleware
-from app.routers import health, item
+from app.routers import health, referral
 from app.schemas.common import ErrorDetail, ErrorResponse
 
 
@@ -192,7 +192,7 @@ app.add_middleware(RequestIDMiddleware)
 
 # Routers
 app.include_router(health.router)
-app.include_router(item.router)
+app.include_router(referral.router)
 
 
 @app.get("/", include_in_schema=False)

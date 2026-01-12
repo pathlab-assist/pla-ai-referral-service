@@ -10,13 +10,13 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # Service
-    service_name: str = "template-service"
+    service_name: str = "ai-referral-service"
     environment: Literal["development", "staging", "production"] = "development"
     debug: bool = False
 
     # Server
     host: str = "0.0.0.0"
-    port: int = 8080
+    port: int = 8011
 
     # AWS
     aws_region: str = "us-east-1"
@@ -36,9 +36,18 @@ class Settings(BaseSettings):
     cors_allow_methods: list[str] = ["*"]
     cors_allow_headers: list[str] = ["*"]
 
+    # Anthropic
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-sonnet-4-5-20250929"
+    max_image_size_mb: int = 10
+    scan_timeout_seconds: int = 120
+
+    # External Services
+    test_catalog_service_url: str = "http://localhost:8003"
+
     # Logging
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
-    log_json: bool = True
+    log_json: bool = True  # Default: JSON logs (production-ready)
 
 
 # Global settings instance

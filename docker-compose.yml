@@ -22,18 +22,18 @@ services:
       timeout: 5s
       retries: 5
 
-  # Template service
-  template-service:
+  # AI Referral Service
+  ai-referral-service:
     build:
       context: .
       dockerfile: Dockerfile
-    image: pathlab-assist/pla-template-service:latest
-    container_name: pathlab-template-service
+    image: pathlab-assist/pla-ai-referral-service:latest
+    container_name: pathlab-ai-referral-service
     ports:
-      - "8080:8080"
+      - "8011:8011"
     environment:
       # Service
-      - SERVICE_NAME=template-service
+      - SERVICE_NAME=ai-referral-service
       - ENVIRONMENT=development
       - DEBUG=true
 
@@ -46,6 +46,15 @@ services:
 
       # JWT (disabled for local dev)
       - JWT_ENABLED=false
+
+      # Anthropic
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_MODEL=claude-sonnet-4-5-20250929
+      - MAX_IMAGE_SIZE_MB=10
+      - SCAN_TIMEOUT_SECONDS=120
+
+      # External Services
+      - TEST_CATALOG_SERVICE_URL=http://pathlab-test-catalog-service:8080
 
       # Logging
       - LOG_LEVEL=DEBUG
@@ -60,7 +69,7 @@ services:
     networks:
       - pathlab
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8011/health"]
       interval: 30s
       timeout: 3s
       retries: 3

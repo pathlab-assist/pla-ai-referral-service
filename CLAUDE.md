@@ -1,16 +1,16 @@
-# CLAUDE.md - Python/FastAPI Microservice Template Context
+# CLAUDE.md - AI Referral Scanning Service Context
 
 ## Overview
 
-This is a production-ready Python/FastAPI microservice template for PathLab Assist services. It provides a scaffolding project with best practices for building scalable, compliant, and maintainable microservices.
+The AI Referral Scanning Service is a production Python/FastAPI microservice that uses Claude Vision to extract structured data from pathology referral images. It processes uploaded referral forms and returns patient information, doctor details, and requested tests to pre-fill test order forms.
 
 ## Purpose
 
-**This is a TEMPLATE** - designed to be cloned and customized for specific services like:
-- AI/ML services (e.g., AI Referral Scanning)
-- Data processing services
-- Integration services
-- API gateways
+**Service Function**: Extract structured data from referral images
+- Uses Claude Vision (Sonnet 4.5) for OCR and data extraction
+- Matches extracted test names to test catalog via pla-test-catalog-service
+- Stateless processing (no DynamoDB persistence)
+- Returns confidence scores for extracted data
 
 ## Architecture
 

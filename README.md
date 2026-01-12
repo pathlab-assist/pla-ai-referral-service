@@ -1,23 +1,19 @@
-# PathLab Assist - Python/FastAPI Microservice Template
+# PathLab Assist - AI Referral Scanning Service
 
-Production-ready Python/FastAPI microservice template for PathLab Assist services. Designed for AI/ML services with comprehensive support for multi-tenancy, authentication, structured logging, and AWS integration.
+AI-powered referral document scanning service using Claude Vision for PathLab Assist. Extracts patient information, doctor details, and requested tests from pathology referral images to pre-fill test order forms.
 
 ## Features
 
+- ✅ **Claude Vision AI** - Extract structured data from referral images using Claude Sonnet 4.5
+- ✅ **Test Matching** - Fuzzy match extracted test names to catalog via test-catalog-service
 - ✅ **FastAPI** - Modern, fast Python web framework
-- ✅ **Pythonic Architecture** - Clean separation: models, schemas, repositories, services, routers
-- ✅ **Multi-Tenancy** - Organization-scoped data access with JWT-based tenant isolation
-- ✅ **JWT Authentication** - JWKS-based token validation with configurable middleware
-- ✅ **Structured Logging** - `structlog` with PII masking and JSON output
-- ✅ **DynamoDB Repository** - Example implementation with GSI patterns
-- ✅ **NPAAC Compliance** - Audit trails on all entities (created_by, updated_by, timestamps)
+- ✅ **JWT Authentication** - JWKS-based token validation with multi-tenancy
+- ✅ **Structured Logging** - PII masking (NO patient data logged)
 - ✅ **Privacy Act 1988** - PII masking in logs (Medicare numbers, DOB, email, phone)
+- ✅ **Stateless Architecture** - Process-and-return pattern (no persistence)
 - ✅ **Docker & docker-compose** - Multi-stage build, non-root user, health checks
-- ✅ **LocalStack Support** - Local AWS services for development
 - ✅ **Type Safety** - Full mypy type checking
 - ✅ **Code Quality** - Ruff for linting and formatting
-- ✅ **Testing** - pytest with async support and coverage
-- ✅ **CI/CD** - GitHub Actions workflow
 
 ## Quick Start
 
@@ -25,14 +21,15 @@ Production-ready Python/FastAPI microservice template for PathLab Assist service
 
 - Python 3.11+
 - Docker & Docker Compose
-- AWS CLI (for LocalStack operations)
+- Anthropic API Key (Claude Vision)
+- pla-test-catalog-service running on port 8003
 
 ### Installation
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/pathlab-assist/pla-python-microservice-template.git
-   cd pla-python-microservice-template
+   git clone https://github.com/pathlab-assist/pla-ai-referral-service.git
+   cd pla-ai-referral-service
    ```
 
 2. **Install dependencies:**
@@ -43,6 +40,7 @@ Production-ready Python/FastAPI microservice template for PathLab Assist service
 3. **Create environment file:**
    ```bash
    cp .env.example .env
+   # Edit .env and set ANTHROPIC_API_KEY
    ```
 
 ### Development
@@ -52,11 +50,131 @@ Production-ready Python/FastAPI microservice template for PathLab Assist service
 make dev
 ```
 
-The service will be available at `http://localhost:8080`
+The service will be available at `http://localhost:8011`
 
-- API Docs: `http://localhost:8080/docs`
-- ReDoc: `http://localhost:8080/redoc`
-- Health Check: `http://localhost:8080/health`
+- API Docs: `http://localhost:8011/docs`
+- ReDoc: `http://localhost:8011/redoc`
+- Health Check: `http://localhost:8011/health`
+
+## Configuration
+
+### Logging
+
+The service uses structured JSON logs by default (production-ready).
+
+**Production** (default):
+- Structured JSON logs
+- Machine-parsable format
+- `LOG_JSON=true` (default)
+
+**Local Development** (docker-compose override):
+- Single-line colorized console logs
+- Human-readable format
+- `LOG_JSON=false` (set in docker-compose.yml)
+
+### PII Masking
+
+All logs automatically mask sensitive patient information:
+- Medicare numbers
+- Date of birth
+- Email addresses
+- Phone numbers
+- API keys and tokens
+
+**Example log output (development)**:
+```
+2025-01-12T10:30:00Z [info     ] Referral scan complete [ai-referral-service] processing_time_ms=2500 tests_matched=3 organization_id=org-123
+```
+
+**Example log output (production)**:
+```json
+{
+  "event": "Referral scan complete",
+  "level": "info",
+  "timestamp": "2025-01-12T10:30:00Z",
+  "service": "ai-referral-service",
+  "processing_time_ms": 2500,
+  "tests_matched": 3,
+  "organization_id": "org-123"
+}
+```
+
+## API Endpoints
+
+### POST /api/v1/referral/scan
+Scan a referral image and extract structured data.
+
+**Request:**
+- Content-Type: `multipart/form-data`
+- Field: `image` (file)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "patient": {
+      "firstName": "John",
+      "lastName": "Smith",
+      "dateOfBirth": "1990-01-01",
+      "sex": "M",
+      "medicareNumber": "1234567890",
+      "address": "123 Main St, Sydney NSW 2000"
+    },
+    "doctor": {
+      "name": "Dr Jane Doe",
+      "providerNumber": "123456",
+      "practice": "Sydney Medical Centre",
+      "phone": "02 1234 5678",
+      "address": "456 Medical St, Sydney NSW 2000"
+    },
+    "tests": ["FBC", "UEC", "LFT"],
+    "matchedTests": [
+      {
+        "original": "FBC",
+        "matched": "Full Blood Count",
+        "testId": "full-blood-count",
+        "confidence": 1.0
+      }
+    ],
+    "clinicalNotes": "Patient presents with fatigue",
+    "urgent": false,
+    "confidence": {
+      "patient": 0.95,
+      "doctor": 0.90,
+      "tests": 0.98,
+      "overall": 0.94
+    }
+  },
+  "processingTimeMs": 2500,
+  "timestamp": "2025-01-12T10:30:00Z"
+}
+```
+
+### POST /api/v1/referral/tests/match
+Match test names to catalog without scanning.
+
+**Request:**
+```json
+{
+  "tests": ["FBC", "UEC", "LIPIDS"]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "original": "FBC",
+      "matched": "Full Blood Count",
+      "testId": "FBC",
+      "confidence": 1.0
+    }
+  ]
+}
+```
 
 ### Docker Development
 
