@@ -127,16 +127,102 @@ class TestMatcherService:
             )
 
     async def match_tests(self, test_names: list[str]) -> list[MatchedTest]:
-        """Match multiple test names to the catalog.
+        """Match multiple test names to the catalog using batch endpoint.
+
+        Uses the new POST /api/v1/tests/match batch endpoint for improved
+        performance (1 request vs N requests).
 
         Args:
-            test_names: List of test names to match
+            test_names: List of test names to match (1-50 items)
 
         Returns:
             List of matched tests with confidence scores
         """
-        # Execute matches in parallel for better performance
-        import asyncio
+        if not test_names:
+            return []
 
-        tasks = [self.match_test(test_name) for test_name in test_names]
-        return await asyncio.gather(*tasks)
+        # Use batch matching endpoint for better performance
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.catalog_url}/api/v1/tests/match",
+                    json={
+                        "testNames": test_names,
+                        "region": "DEFAULT",  # Can be made configurable
+                    },
+                    headers={"X-Organization-Code": self.organization_id},
+                    timeout=10.0,  # Longer timeout for batch operation
+                )
+
+                if response.status_code != 200:
+                    logger.warning(
+                        "Batch test matching failed, falling back to individual matches",
+                        status_code=response.status_code,
+                        test_count=len(test_names),
+                    )
+                    # Fallback to individual matching
+                    import asyncio
+
+                    tasks = [self.match_test(test_name) for test_name in test_names]
+                    return await asyncio.gather(*tasks)
+
+                data = response.json()
+                matches = data.get("matches", [])
+
+                # Convert batch response to MatchedTest objects
+                results = []
+                for match in matches:
+                    # Convert search score (0-100) to confidence (0.0-1.0)
+                    search_score = match.get("searchScore", 0)
+                    confidence = min(search_score / 100.0, 1.0)
+
+                    # If no match found, use original test name
+                    if not match.get("matched", False):
+                        results.append(
+                            MatchedTest(
+                                original=match.get("query", ""),
+                                matched=match.get("query", ""),
+                                test_id=match.get("query", ""),
+                                confidence=0.3,
+                            )
+                        )
+                    else:
+                        results.append(
+                            MatchedTest(
+                                original=match.get("query", ""),
+                                matched=match.get("name", ""),
+                                test_id=match.get("code", ""),
+                                confidence=confidence,
+                            )
+                        )
+
+                logger.info(
+                    "Batch test matching complete",
+                    total_tests=len(test_names),
+                    matched_count=sum(1 for m in matches if m.get("matched", False)),
+                )
+
+                return results
+
+        except httpx.TimeoutException:
+            logger.error(
+                "Batch test matching timeout, falling back to individual matches",
+                test_count=len(test_names),
+            )
+            # Fallback to individual matching
+            import asyncio
+
+            tasks = [self.match_test(test_name) for test_name in test_names]
+            return await asyncio.gather(*tasks)
+
+        except Exception as e:
+            logger.error(
+                "Batch test matching error, falling back to individual matches",
+                test_count=len(test_names),
+                error=str(e),
+            )
+            # Fallback to individual matching
+            import asyncio
+
+            tasks = [self.match_test(test_name) for test_name in test_names]
+            return await asyncio.gather(*tasks)
