@@ -40,6 +40,10 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         Raises:
             UnauthorizedError: If authentication fails
         """
+        # Skip authentication for OPTIONS requests (CORS preflight)
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         # Skip authentication for excluded paths
         if request.url.path in self.EXCLUDED_PATHS:
             return await call_next(request)

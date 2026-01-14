@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
 from app.config import settings
+from app.core.exceptions import ValidationError
 from app.core.logging import get_logger
 from app.dependencies import AuthContext, get_current_user
 from app.schemas.referral import (
@@ -72,7 +73,7 @@ async def scan_referral(
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Image too large. Maximum size: {settings.max_image_size_mb}MB",
+            detail=f"Image too large. Maximum size: {settings.max_image_size_mb}MB (Claude Vision API limit: 5MB when base64 encoded)",
         )
 
     # Determine and validate image type
@@ -168,6 +169,17 @@ async def scan_referral(
 
     except HTTPException:
         raise
+    except ValidationError as e:
+        # Client validation errors (e.g., image too large)
+        logger.warning(
+            "Validation error scanning referral",
+            error=str(e),
+            organization_id=auth.organization_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
     except Exception as e:
         logger.error(
             "Error scanning referral",
