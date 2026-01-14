@@ -5,6 +5,7 @@ from app.config import settings
 from app.core.logging import get_logger
 from app.schemas.referral import MatchedTest
 from app.services.oauth_client import OAuthClient
+from app.services.test_preprocessor import TestPreprocessor
 
 logger = get_logger(__name__)
 
@@ -21,6 +22,7 @@ class TestMatcherService:
         self.organization_id = organization_id
         self.catalog_url = settings.test_catalog_service_url
         self.oauth_client = OAuthClient()
+        self.preprocessor = TestPreprocessor()
 
     async def match_test(self, test_name: str) -> MatchedTest:
         """Match a single test name to the catalog.
@@ -41,7 +43,7 @@ class TestMatcherService:
             return MatchedTest(
                 original=test_name,
                 matched=test_name,
-                test_id=test_name,
+                test_id="",  # Empty string for invalid input
                 confidence=0.0,
             )
 
@@ -68,11 +70,11 @@ class TestMatcherService:
                         status_code=response.status_code,
                         test_name=test_stripped,
                     )
-                    # Return original with low confidence
+                    # Return original with low confidence, empty test_id
                     return MatchedTest(
                         original=test_name,
                         matched=test_name,
-                        test_id=test_name,
+                        test_id="",  # Empty string when catalog search fails
                         confidence=0.3,
                     )
 
@@ -80,12 +82,12 @@ class TestMatcherService:
                 tests = data.get("tests", [])
 
                 if not tests:
-                    # No match found - return original with low confidence
+                    # No match found - return empty test_id
                     logger.debug("No test match found", test_name=test_stripped)
                     return MatchedTest(
                         original=test_name,
                         matched=test_name,
-                        test_id=test_name,
+                        test_id="",  # Empty string when no match found
                         confidence=0.3,
                     )
 
@@ -113,11 +115,11 @@ class TestMatcherService:
 
         except httpx.TimeoutException:
             logger.error("Test catalog service timeout", test_name=test_stripped)
-            # Return original with low confidence
+            # Return empty test_id on timeout
             return MatchedTest(
                 original=test_name,
                 matched=test_name,
-                test_id=test_name,
+                test_id="",  # Empty string on timeout
                 confidence=0.2,
             )
         except Exception as e:
@@ -126,28 +128,44 @@ class TestMatcherService:
                 test_name=test_stripped,
                 error=str(e),
             )
-            # Return original with low confidence
+            # Return empty test_id on error
             return MatchedTest(
                 original=test_name,
                 matched=test_name,
-                test_id=test_name,
+                test_id="",  # Empty string on error
                 confidence=0.2,
             )
 
     async def match_tests(self, test_names: list[str]) -> list[MatchedTest]:
         """Match multiple test names to the catalog using batch endpoint.
 
-        Uses the new POST /api/v1/tests/match batch endpoint for improved
-        performance (1 request vs N requests).
+        Uses preprocessing to handle compound tests and abbreviations, then
+        calls the POST /api/v1/tests/match batch endpoint for performance.
 
         Args:
             test_names: List of test names to match (1-50 items)
 
         Returns:
-            List of matched tests with confidence scores
+            List of matched tests with confidence scores (may be more than input
+            if compound tests are split)
         """
         if not test_names:
             return []
+
+        # Step 1: Preprocess all test names (may expand compound tests)
+        preprocessed_mapping = {}  # original -> [preprocessed terms]
+        all_preprocessed_terms = []
+
+        for original_name in test_names:
+            preprocessed_terms = self.preprocessor.preprocess(original_name)
+            preprocessed_mapping[original_name] = preprocessed_terms
+            all_preprocessed_terms.extend(preprocessed_terms)
+
+        logger.info(
+            "Preprocessing complete",
+            original_count=len(test_names),
+            preprocessed_count=len(all_preprocessed_terms),
+        )
 
         # Use batch matching endpoint for better performance
         try:
@@ -162,7 +180,7 @@ class TestMatcherService:
                 response = await client.post(
                     f"{self.catalog_url}/api/v1/tests/match",
                     json={
-                        "testNames": test_names,
+                        "testNames": all_preprocessed_terms,  # Use preprocessed terms
                         "region": "DEFAULT",  # Can be made configurable
                     },
                     headers=headers,
@@ -191,13 +209,13 @@ class TestMatcherService:
                     search_score = match.get("searchScore", 0)
                     confidence = min(search_score / 100.0, 1.0)
 
-                    # If no match found, use original test name
+                    # If no match found, return empty test_id (not the query!)
                     if not match.get("matched", False):
                         results.append(
                             MatchedTest(
                                 original=match.get("query", ""),
                                 matched=match.get("query", ""),
-                                test_id=match.get("query", ""),
+                                test_id="",  # Empty string instead of query
                                 confidence=0.3,
                             )
                         )

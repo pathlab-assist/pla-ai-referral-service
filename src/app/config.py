@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     # Anthropic
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-5-20250929"
-    max_image_size_mb: int = 10
+    max_image_size_mb: float = 10.0  # Allow decimal precision for size limits
     scan_timeout_seconds: int = 120
 
     # External Services
